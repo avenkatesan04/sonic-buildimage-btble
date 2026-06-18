@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""
+mobile-managementd — SONiC BLE peripheral daemon entry point.
+
+Launched by systemd as the mobile-management service. Always runs in
+headless mode (no TUI). Configuration is read from CONFIG_DB via the
+FEATURE table; CLI arguments provide defaults until Phase 2 wires up
+the full CONFIG_DB integration.
+
+Usage (standalone):
+    mobile-managementd
+    mobile-managementd --ports 24 --interval 3 --users admin:secret
+"""
+
+import asyncio
+import sys
+
+from mobile_management.peripheral import main, _parse_users, BLE_NAME_MAX
+
+
+def _cli():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="SONiC mobile-management BLE peripheral daemon")
+    parser.add_argument("--ports",    type=int,   default=48)
+    parser.add_argument("--interval", type=float, default=2.0)
+    parser.add_argument("--duration", type=float, default=0)
+    parser.add_argument("--users",    type=str,   default="",
+                        help="Comma-separated user:pass pairs")
+    parser.add_argument("--name",     type=str,   default="SwitchMon",
+                        help=f"BLE device name (max {BLE_NAME_MAX} chars)")
+    return parser.parse_args()
+
+
+def main_entry():
+    args = _cli()
+    parsed_users = _parse_users(args.users)
+    try:
+        asyncio.run(main(
+            args.ports, args.interval, args.duration,
+            parsed_users, args.name, headless=True,
+        ))
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main_entry()

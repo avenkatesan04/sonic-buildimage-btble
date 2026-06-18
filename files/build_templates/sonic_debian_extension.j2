@@ -293,6 +293,12 @@ install_pip_package {{sonic_host_services_py3_wheel_path}}
 # Install SONiC host services data files (and any dependencies via 'apt-get -y install -f')
 install_deb_package $debs_path/sonic-host-services-data_*.deb
 
+# Install mobile-management BLE peripheral daemon and its Python dependencies.
+# bless and dbus-fast are third-party wheels not packaged by Debian; install via pip.
+sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip3 install bless
+sudo https_proxy=$https_proxy LANG=C chroot $FILESYSTEM_ROOT pip3 install dbus-fast
+install_pip_package {{sonic_mobile_management_py3_wheel_path}}
+
 {% if enable_ztp == "y" %}
 # Install ZTP (and its dependencies via 'apt-get -y install -f')
 install_deb_package $debs_path/sonic-ztp_*.deb
