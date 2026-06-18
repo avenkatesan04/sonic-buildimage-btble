@@ -905,6 +905,11 @@ fi
 ## copy blacklist file
 sudo cp $IMAGE_CONFIGS/platform/linux_kernel_bde.conf $FILESYSTEM_ROOT/etc/modprobe.d/
 
+## mobile-management: blacklist BT modules and mask bluetooth.service.
+## BT stays completely dark until the mobile-management feature is enabled.
+sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-blacklist.conf $FILESYSTEM_ROOT/etc/modprobe.d/
+sudo LANG=C chroot $FILESYSTEM_ROOT systemctl mask bluetooth.service
+
 # Enable psample drivers to support sFlow on vs
 {% if sonic_asic_platform == "vs" %}
 sudo tee -a $FILESYSTEM_ROOT/etc/modules-load.d/modules.conf > /dev/null <<EOF

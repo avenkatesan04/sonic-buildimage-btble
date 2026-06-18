@@ -313,6 +313,14 @@ if [[ $CONFIGURED_ARCH == amd64 ]]; then
         firmware-intel-misc
 fi
 
+## Bluetooth USB dongle firmware (all arches).
+## Supports Realtek, Atheros, Intel, MediaTek, and misc USB BT adapters.
+## Modules stay blacklisted; firmware is only used when mobile-management is enabled.
+sudo LANG=C chroot $FILESYSTEM_ROOT apt-get -y install      \
+    firmware-realtek \
+    firmware-atheros \
+    firmware-misc-nonfree
+
 ## Pre-install the fundamental packages
 ## Note: gdisk is needed for sgdisk in install.sh
 ## Note: parted is needed for partprobe in install.sh
@@ -330,6 +338,8 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     bash-completion         \
     tcpdump                 \
     dbus                    \
+    bluez                   \
+    rfkill                  \
     openssh-server          \
     python3-apt             \
     traceroute              \
