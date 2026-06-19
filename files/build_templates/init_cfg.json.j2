@@ -110,6 +110,7 @@
 {%- elif include_system_eventd == "y" %}
     {% do features.append(("eventd", "enabled", false, "enabled")) %}
 {%- endif %}
+{% do features.append(("mobile-management", "disabled", false, "enabled")) %}
     "FEATURE": {
 {# delayed field if set, will start the feature systemd .timer unit instead of .service unit #}
 {%- for feature, state, delayed, autorestart in features %}
@@ -119,6 +120,9 @@
 {%- if feature in ["lldp"] %}
             "has_global_scope": {% raw %}"{% if ('CHASSIS_METADATA' in DEVICE_RUNTIME_METADATA and DEVICE_RUNTIME_METADATA['CHASSIS_METADATA']['module_type'] in ['linecard']) %}False{% else %}True{% endif %}"{% endraw %},
             "has_per_asic_scope": {% raw %}"{% if not DEVICE_RUNTIME_METADATA['ETHERNET_PORTS_PRESENT'] or ('CHASSIS_METADATA' in DEVICE_RUNTIME_METADATA and DEVICE_RUNTIME_METADATA['CHASSIS_METADATA']['module_type'] in ['supervisor']) %}False{% else %}True{% endif %}"{% endraw %},
+{%- elif feature in ["mobile-management"] %}
+            "has_global_scope": true,
+            "has_per_asic_scope": "False",
 {%- else %}
             "has_global_scope": {% if feature + '.service' in installer_services.split(' ') %}true{% else %}false{% endif %},
             "has_per_asic_scope": {% if feature + '@.service' in installer_services.split(' ') %}"True"{% else %}"False"{% endif %},

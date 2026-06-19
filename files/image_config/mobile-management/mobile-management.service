@@ -1,0 +1,17 @@
+[Unit]
+Description=SONiC mobile management BLE peripheral
+Requires=config-setup.service database.service
+After=config-setup.service database.service featured.service
+BindsTo=sonic.target
+After=sonic.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/bin/mobile-management-bt-up.sh
+ExecStart=/usr/local/bin/mobile-managementd
+ExecStopPost=/usr/local/bin/mobile-management-bt-down.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=sonic.target

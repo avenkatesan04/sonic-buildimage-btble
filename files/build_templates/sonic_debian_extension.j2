@@ -916,6 +916,14 @@ sudo cp $IMAGE_CONFIGS/platform/linux_kernel_bde.conf $FILESYSTEM_ROOT/etc/modpr
 sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-blacklist.conf $FILESYSTEM_ROOT/etc/modprobe.d/
 sudo LANG=C chroot $FILESYSTEM_ROOT systemctl mask bluetooth.service
 
+## mobile-management: install systemd service unit and BT stack lifecycle scripts.
+sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management.service $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_SYSTEM
+sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-up.sh $FILESYSTEM_ROOT/usr/local/bin/
+sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-down.sh $FILESYSTEM_ROOT/usr/local/bin/
+sudo chmod 755 $FILESYSTEM_ROOT/usr/local/bin/mobile-management-bt-up.sh
+sudo chmod 755 $FILESYSTEM_ROOT/usr/local/bin/mobile-management-bt-down.sh
+echo "mobile-management.service" | sudo tee -a $GENERATED_SERVICE_FILE
+
 # Enable psample drivers to support sFlow on vs
 {% if sonic_asic_platform == "vs" %}
 sudo tee -a $FILESYSTEM_ROOT/etc/modules-load.d/modules.conf > /dev/null <<EOF
