@@ -9,6 +9,7 @@ arguments serve as fallback defaults.
 
 import asyncio
 import logging
+import os
 import signal
 import sys
 import time
@@ -20,6 +21,19 @@ log = logging.getLogger("mobile-managementd")
 logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
 
 RETRY_INTERVAL = 30
+SECRETS_FILE = '/etc/sonic/mobile-management/secrets.json'
+
+
+def _read_secrets() -> dict:
+    """Read user passwords from the secrets file (not CONFIG_DB)."""
+    import json
+    if os.path.isfile(SECRETS_FILE):
+        try:
+            with open(SECRETS_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            log.warning(f"Failed to read {SECRETS_FILE}: {exc}")
+    return {}
 
 
 def _read_config_db():
@@ -45,16 +59,14 @@ def _read_config_db():
             defaults['session_duration'] = float(entry.get('session_duration', defaults['session_duration']))
             defaults['backend'] = entry.get('backend', defaults['backend'])
 
-        auth_table = db.get_table('MOBILE_MANAGEMENT_AUTH') or {}
-        for username, data in auth_table.items():
-            password = data.get('password', '')
-            if password:
-                defaults['users'][username] = password
-
     except ImportError:
         log.info("swsscommon not available — using CLI args / defaults")
     except Exception as exc:
         log.warning(f"CONFIG_DB read failed: {exc} — using CLI args / defaults")
+
+    defaults['users'] = _read_secrets()
+    if defaults['users']:
+        log.info(f"Loaded {len(defaults['users'])} auth user(s) from {SECRETS_FILE}")
 
     return defaults
 

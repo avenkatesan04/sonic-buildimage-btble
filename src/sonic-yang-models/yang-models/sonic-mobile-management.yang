@@ -91,11 +91,12 @@ module sonic-mobile-management {
                     }
                 }
 
-                leaf password {
-                    description "Password for HMAC-SHA256 BLE authentication";
+                leaf enabled {
+                    description "Whether this auth user is active (password stored out-of-band)";
                     type string {
-                        length "1..128";
+                        pattern "true|false";
                     }
+                    default "true";
                 }
             }
         }

@@ -31,6 +31,13 @@ echo "mobile-management: starting bluetooth.service..."
 systemctl unmask bluetooth.service 2>/dev/null || true
 systemctl start bluetooth.service 2>/dev/null || true
 
+# Check if any Bluetooth USB hardware is present before waiting
+if ! lsusb 2>/dev/null | grep -qi "bluetooth\|0a12:\|0cf3:\|0bda:\|8087:"; then
+    echo "mobile-management: no BT USB hardware detected — skipping adapter wait"
+    echo "mobile-management: daemon will start but BLE advertising may fail"
+    exit 0
+fi
+
 # Wait for an HCI adapter (firmware push can take 10-15s on Realtek adapters)
 echo "mobile-management: waiting for HCI adapter..."
 TIMEOUT=30

@@ -922,7 +922,8 @@ sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-up.sh $FILESYSTEM_
 sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-down.sh $FILESYSTEM_ROOT/usr/local/bin/
 sudo chmod 755 $FILESYSTEM_ROOT/usr/local/bin/mobile-management-bt-up.sh
 sudo chmod 755 $FILESYSTEM_ROOT/usr/local/bin/mobile-management-bt-down.sh
-sudo cp $IMAGE_CONFIGS/mobile-management/mobile-management-bt-blacklist.conf $FILESYSTEM_ROOT/etc/modprobe.d/
+sudo mkdir -p $FILESYSTEM_ROOT/etc/sonic/mobile-management
+sudo chmod 700 $FILESYSTEM_ROOT/etc/sonic/mobile-management
 echo "mobile-management.service" | sudo tee -a $GENERATED_SERVICE_FILE
 
 # Enable psample drivers to support sFlow on vs
