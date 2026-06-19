@@ -49,9 +49,31 @@ if [ -z "$HCI_DEV" ]; then
     exit 0
 fi
 
-# Power on via btmgmt (preferred over hciconfig for BlueZ 5.x)
+# Give BlueZ a moment to claim the adapter
+sleep 2
+
+# Power on via multiple methods for robustness
 echo "mobile-management: powering on $HCI_DEV..."
-btmgmt --index 0 power on 2>/dev/null || hciconfig "$HCI_DEV" up 2>/dev/null || true
+hciconfig "$HCI_DEV" up 2>/dev/null || true
+sleep 1
+btmgmt --index 0 power on 2>/dev/null || true
+
+# Wait for adapter to actually come UP
+echo "mobile-management: waiting for $HCI_DEV to come UP..."
+UP_TIMEOUT=15
+for i in $(seq 1 $UP_TIMEOUT); do
+    if hciconfig "$HCI_DEV" 2>/dev/null | grep -q "UP RUNNING"; then
+        echo "  $HCI_DEV is UP after ${i}s"
+        break
+    fi
+    # Retry power-on each iteration in case BlueZ wasn't ready
+    hciconfig "$HCI_DEV" up 2>/dev/null || true
+    sleep 1
+done
+
+if ! hciconfig "$HCI_DEV" 2>/dev/null | grep -q "UP RUNNING"; then
+    echo "mobile-management: WARNING: $HCI_DEV did not come UP after ${UP_TIMEOUT}s"
+fi
 
 # Restrict to BLE-only (disable BR/EDR classic bluetooth)
 btmgmt --index 0 bredr off 2>/dev/null || true
