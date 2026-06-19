@@ -112,12 +112,20 @@ def main_entry():
     if args.users:
         users.update(_parse_users(args.users))
 
+    publisher = None
+    try:
+        from mobile_management.state_publisher import StatePublisher
+        publisher = StatePublisher()
+    except Exception as exc:
+        log.warning(f"StatePublisher unavailable: {exc}")
+
     while not shutdown:
         try:
             log.info("Starting BLE peripheral...")
             asyncio.run(main(
                 num_ports, interval, duration,
                 users, name, headless=True,
+                state_publisher=publisher,
             ))
             break
         except KeyboardInterrupt:

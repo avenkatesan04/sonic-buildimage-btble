@@ -1889,7 +1889,7 @@ BLE_NAME_MAX = 26   # BLE advertisement packet limit (~31 bytes - flags - UUID o
 
 async def main(num_ports: int, interval: float, duration: float,
                users: dict = None, name: str = "SwitchMon",
-               headless: bool = False):
+               headless: bool = False, state_publisher=None):
     global server, simulator, configured_num_ports
     global cmd_queue, auth_queue, _shutdown_event, _tui_state, _users
     global _ble_device_name, _HEADLESS
@@ -1948,6 +1948,7 @@ async def main(num_ports: int, interval: float, duration: float,
     keepalive_task = asyncio.create_task(keepalive_loop())
     stale_task     = asyncio.create_task(stale_client_checker(state.registry, state))
     countdown_task = asyncio.create_task(countdown_loop(duration)) if duration > 0 else None
+    publish_task   = asyncio.create_task(state_publisher.run(state)) if state_publisher else None
 
     if headless or not _HAS_TUI:
         # Headless: block on shutdown event (systemd sends SIGTERM → event is set)
@@ -1981,6 +1982,8 @@ async def main(num_ports: int, interval: float, duration: float,
         tasks.append(shutdown_watcher)
     if countdown_task is not None:
         tasks.append(countdown_task)
+    if publish_task is not None:
+        tasks.append(publish_task)
     for task in tasks:
         task.cancel()
         try:
