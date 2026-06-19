@@ -10,8 +10,7 @@ Type=simple
 ExecStartPre=/usr/local/bin/mobile-management-bt-up.sh
 ExecStart=/usr/local/bin/mobile-managementd
 ExecStopPost=/usr/local/bin/mobile-management-bt-down.sh
-Restart=on-failure
-RestartSec=5
+Restart=no
 
 [Install]
 WantedBy=sonic.target

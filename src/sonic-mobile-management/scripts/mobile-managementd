@@ -9,12 +9,17 @@ arguments serve as fallback defaults.
 
 import asyncio
 import logging
+import signal
 import sys
+import time
 
 from mobile_management.peripheral import main, _parse_users, BLE_NAME_MAX
 from mobile_management.backend import create_backend
 
 log = logging.getLogger("mobile-managementd")
+logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
+
+RETRY_INTERVAL = 30
 
 
 def _read_config_db():
@@ -72,6 +77,16 @@ def _cli():
 
 
 def main_entry():
+    shutdown = False
+
+    def _handle_signal(signum, frame):
+        nonlocal shutdown
+        log.info(f"Received signal {signum}, shutting down")
+        shutdown = True
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
     cfg = _read_config_db()
     args = _cli()
 
@@ -85,13 +100,27 @@ def main_entry():
     if args.users:
         users.update(_parse_users(args.users))
 
-    try:
-        asyncio.run(main(
-            num_ports, interval, duration,
-            users, name, headless=True,
-        ))
-    except KeyboardInterrupt:
-        pass
+    while not shutdown:
+        try:
+            log.info("Starting BLE peripheral...")
+            asyncio.run(main(
+                num_ports, interval, duration,
+                users, name, headless=True,
+            ))
+            break
+        except KeyboardInterrupt:
+            break
+        except Exception as exc:
+            log.warning(f"BLE peripheral failed: {exc}")
+            if shutdown:
+                break
+            log.info(f"No BT adapter? Retrying in {RETRY_INTERVAL}s...")
+            for _ in range(RETRY_INTERVAL):
+                if shutdown:
+                    break
+                time.sleep(1)
+
+    log.info("mobile-managementd exiting")
 
 
 if __name__ == "__main__":

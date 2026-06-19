@@ -11,7 +11,7 @@
 #   3. Wait for an HCI adapter to appear
 #   4. Power on the adapter and restrict to BLE-only
 #
-set -e
+set +e
 
 BT_MODULES="bluetooth btrtl btbcm btintel btmtk btusb"
 
@@ -28,8 +28,8 @@ echo "mobile-management: unblocking radio..."
 rfkill unblock bluetooth 2>/dev/null || true
 
 echo "mobile-management: starting bluetooth.service..."
-systemctl unmask bluetooth.service
-systemctl start bluetooth.service
+systemctl unmask bluetooth.service 2>/dev/null || true
+systemctl start bluetooth.service 2>/dev/null || true
 
 # Wait for an HCI adapter (firmware push can take 10-15s on Realtek adapters)
 echo "mobile-management: waiting for HCI adapter..."
