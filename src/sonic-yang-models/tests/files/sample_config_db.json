@@ -3273,6 +3273,20 @@
                 "guard_time": "2",
                 "ber_threshold": "12"
             }
+        },
+        "MOBILE_MANAGEMENT": {
+            "GLOBAL": {
+                "device_name": "SwitchMon",
+                "interval": "2",
+                "num_ports": "48",
+                "session_duration": "0",
+                "backend": "auto"
+            }
+        },
+        "MOBILE_MANAGEMENT_AUTH": {
+            "admin": {
+                "enabled": "true"
+            }
         }
     },
     "SAMPLE_CONFIG_DB_UNKNOWN": {
