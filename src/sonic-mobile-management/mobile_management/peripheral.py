@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ble_switch_peripheral.py — BLE Peripheral for Switch Sensor Telemetry
 ======================================================================
