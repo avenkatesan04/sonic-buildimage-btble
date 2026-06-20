@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("mobile_management.state_publisher")
 
-STATE_DB_ID = 6
-
 _DAEMON_KEY = "MOBILE_MANAGEMENT_DAEMON|status"
 _TELEMETRY_KEY = "MOBILE_MANAGEMENT_TELEMETRY|snapshot"
 _SESSION_PREFIX = "MOBILE_MANAGEMENT_SESSION|"
@@ -39,13 +37,15 @@ class StatePublisher:
     def __init__(self, publish_interval: float = 5.0):
         self._interval = publish_interval
         self._db = None
+        self._state_db = None
         self._start_time = time.time()
         self._prev_session_keys: set = set()
 
         try:
             from swsscommon.swsscommon import SonicV2Connector
             self._db = SonicV2Connector()
-            self._db.connect(STATE_DB_ID)
+            self._state_db = self._db.STATE_DB
+            self._db.connect(self._state_db)
             log.info("StatePublisher: connected to STATE_DB")
         except Exception as exc:
             log.warning(f"StatePublisher: STATE_DB connect failed: {exc}")
@@ -53,11 +53,11 @@ class StatePublisher:
 
     def _set(self, key: str, field: str, value: str):
         if self._db:
-            self._db.set(STATE_DB_ID, key, field, value)
+            self._db.set(self._state_db, key, field, value)
 
     def _delete(self, key: str):
         if self._db:
-            self._db.delete(STATE_DB_ID, key)
+            self._db.delete(self._state_db, key)
 
     def _publish_daemon_status(self, state: PeripheralState):
         from mobile_management.peripheral import (
