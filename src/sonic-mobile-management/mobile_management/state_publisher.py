@@ -67,7 +67,11 @@ class StatePublisher:
         has_server = server is not None
         n_connected = state.registry.connected_count
 
-        self._set(_DAEMON_KEY, "state", "running" if has_server else "starting")
+        if has_server:
+            daemon_state = "running"
+        else:
+            daemon_state = "running_no_adapter"
+        self._set(_DAEMON_KEY, "state", daemon_state)
         self._set(_DAEMON_KEY, "pid", str(os.getpid()))
         self._set(_DAEMON_KEY, "uptime", str(uptime))
         self._set(_DAEMON_KEY, "advertising", "true" if has_server else "false")
