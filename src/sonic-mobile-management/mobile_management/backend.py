@@ -10,6 +10,7 @@ The daemon selects one at startup based on CLI arg / CONFIG_DB setting.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Dict, List, Optional
@@ -34,6 +35,10 @@ class SimBackend:
 
     def read(self) -> SwitchSnapshot:
         return self.sim.read()
+
+    async def stream(self, interval: float = 2.0):
+        async for snap in self.sim.stream(interval):
+            yield snap
 
     def trigger_alarm(self, category, severity, message) -> str:
         return self.sim.trigger_alarm(category, severity, message)
@@ -451,6 +456,11 @@ class SonicBackend:
             ) for k, v in self._port_configs.items()},
             alarms=list(self._alarms),
         )
+
+    async def stream(self, interval: float = 2.0):
+        while True:
+            yield self.read()
+            await asyncio.sleep(interval)
 
     # ── Write path ────────────────────────────────────────────────────────────
 
