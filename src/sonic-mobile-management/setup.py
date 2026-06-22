@@ -7,7 +7,7 @@ setup(
     license='Apache 2.0',
     author='SONiC Team',
     url='https://github.com/Azure/sonic-buildimage',
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests', 'tests.*']),
     scripts=[
         'scripts/mobile-managementd',
     ],
@@ -16,8 +16,19 @@ setup(
         'dbus-fast',
     ],
     setup_requires=[
+        'pytest-runner',
         'wheel',
     ],
+    tests_require=[
+        'pytest',
+        'pytest-asyncio',
+    ],
+    extras_require={
+        'testing': [
+            'pytest',
+            'pytest-asyncio',
+        ],
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',

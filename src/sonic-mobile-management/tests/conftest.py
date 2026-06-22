@@ -2,12 +2,46 @@
 conftest.py — Shared fixtures for mobile-management unit tests.
 
 Mocks swsscommon so tests run anywhere without a real SONiC Redis.
+Also stubs the SONiC utilities_common dependency chain for CLI tests.
 """
 import sys
 import types
 from unittest.mock import MagicMock
 
+import click
 import pytest
+
+
+# ── Stub SONiC utilities_common for CLI plugin tests ──────────────────────────
+# Must run before any test module imports show.plugins or config.plugins.
+
+class CliStubDb:
+    """Minimal stand-in for utilities_common.db.Db used by pass_db."""
+    pass
+
+
+for _mod_name in [
+    "sonic_py_common", "sonic_py_common.device_info",
+    "sonic_py_common.multi_asic",
+    "lazy_object_proxy", "netaddr", "natsort",
+    "utilities_common.general",
+]:
+    sys.modules.setdefault(_mod_name, MagicMock())
+
+_uc_db_mod = types.ModuleType("utilities_common.db")
+_uc_db_mod.Db = CliStubDb
+sys.modules.setdefault("utilities_common.db", _uc_db_mod)
+
+_uc_cli_mod = types.ModuleType("utilities_common.cli")
+_uc_cli_mod.pass_db = click.make_pass_decorator(CliStubDb, ensure=True)
+_uc_cli_mod.AliasedGroup = click.Group
+_uc_cli_mod.AbbreviationGroup = click.Group
+sys.modules.setdefault("utilities_common.cli", _uc_cli_mod)
+
+_uc_mod = types.ModuleType("utilities_common")
+_uc_mod.cli = _uc_cli_mod
+_uc_mod.db = _uc_db_mod
+sys.modules.setdefault("utilities_common", _uc_mod)
 
 
 class FakeSonicV2Connector:
