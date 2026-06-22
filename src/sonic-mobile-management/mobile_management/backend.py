@@ -143,8 +143,16 @@ class SonicBackend:
             self._db.connect(self._db.COUNTERS_DB)
             self._db.connect(self._db.APPL_DB)
 
-            self._cfg_db = ConfigDBConnector()
-            self._cfg_db.connect()
+            raw_cfg = ConfigDBConnector()
+            raw_cfg.connect()
+
+            try:
+                from config.validated_config_db_connector import ValidatedConfigDBConnector
+                self._cfg_db = ValidatedConfigDBConnector(raw_cfg)
+                log.info("SonicBackend: YANG-validated writes enabled")
+            except Exception:
+                self._cfg_db = raw_cfg
+                log.info("SonicBackend: YANG validation unavailable, using raw ConfigDB")
 
             log.info("SonicBackend: connected to Redis databases")
         except Exception as exc:
@@ -447,7 +455,7 @@ class SonicBackend:
     # ── Write path ────────────────────────────────────────────────────────────
 
     def _write_port_field(self, ble_port: int, field: str, value: str) -> bool:
-        """Write a single field to CONFIG_DB PORT|<iface>."""
+        """Write a single field to CONFIG_DB PORT|<iface> via ValidatedConfigDBConnector."""
         iface = self._port_name_map.get(ble_port)
         if not iface or self._cfg_db is None:
             return False
@@ -455,6 +463,9 @@ class SonicBackend:
             self._cfg_db.mod_entry("PORT", iface, {field: value})
             log.info(f"SonicBackend: {iface} {field}={value}")
             return True
+        except ValueError as exc:
+            log.warning(f"SonicBackend: YANG validation rejected {iface}.{field}={value}: {exc}")
+            return False
         except Exception as exc:
             log.warning(f"SonicBackend: write {iface}.{field} failed: {exc}")
             return False
