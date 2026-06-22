@@ -74,6 +74,19 @@ module sonic-mobile-management {
                     }
                     default "auto";
                 }
+
+                leaf auth_mode {
+                    description "Authentication enforcement mode for BLE control commands";
+                    type enumeration {
+                        enum enforce {
+                            description "Require authentication for write/control commands (default)";
+                        }
+                        enum bypass {
+                            description "Allow full read/write access without authentication";
+                        }
+                    }
+                    default "enforce";
+                }
             }
         }
 

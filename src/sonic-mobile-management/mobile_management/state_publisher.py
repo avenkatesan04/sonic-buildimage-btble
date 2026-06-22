@@ -61,7 +61,7 @@ class StatePublisher:
 
     def _publish_daemon_status(self, state: PeripheralState):
         from mobile_management.peripheral import (
-            server, _authenticated, _users,
+            server, _authenticated, _users, _auth_bypass,
         )
         uptime = int(time.time() - self._start_time)
         has_server = server is not None
@@ -71,11 +71,19 @@ class StatePublisher:
             daemon_state = "running"
         else:
             daemon_state = "running_no_adapter"
+
+        if _auth_bypass:
+            auth_mode = "bypass"
+        elif _users:
+            auth_mode = "enabled"
+        else:
+            auth_mode = "disabled"
+
         self._set(_DAEMON_KEY, "state", daemon_state)
         self._set(_DAEMON_KEY, "pid", str(os.getpid()))
         self._set(_DAEMON_KEY, "uptime", str(uptime))
         self._set(_DAEMON_KEY, "advertising", "true" if has_server else "false")
-        self._set(_DAEMON_KEY, "auth_mode", "enabled" if _users else "disabled")
+        self._set(_DAEMON_KEY, "auth_mode", auth_mode)
         self._set(_DAEMON_KEY, "connected_clients", str(n_connected))
 
     def _publish_sessions(self, state: PeripheralState):

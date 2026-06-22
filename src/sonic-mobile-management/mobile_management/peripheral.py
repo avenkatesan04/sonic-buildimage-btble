@@ -392,7 +392,23 @@ _users:         dict  = {}   # username → plaintext password
 _auth_username: str   = ""   # username written pre-auth; used for HMAC key lookup
 _auth_nonce:    bytes = b""
 _authenticated: bool  = False
+_auth_bypass:   bool  = False  # True = full R/W with no auth (config mobile-management auth-mode bypass)
 AUTH_TIMEOUT_SECS = 30
+
+
+# Control opcodes that mutate state — blocked unless authenticated or bypass
+_MUTATION_OPCODES = frozenset({
+    0x03,  # SET_INTERVAL
+    0x20,  # LED_SET
+    0x21,  # PORT_ADMIN_UP
+    0x22,  # PORT_ADMIN_DOWN
+    0x23,  # PORT_SPEED_SET
+    0x24,  # PORT_MTU_SET
+    0x25,  # PORT_DESC_SET
+    0x26,  # ALARM_ACK
+    0x31,  # SET_SPLIT
+    0x33,  # DEMO_RESET
+})
 
 _ble_device_name: str = "SwitchMon"  # set at startup for QR URI encoding
 
@@ -426,16 +442,17 @@ def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray
     if uuid == CHAR_AUTH_CHALLENGE_UUID:
         return bytearray(_auth_nonce)
     if uuid == CHAR_AUTH_STATUS_UUID:
-        # Return 0x01 if authenticated, OR if no users are configured.
-        # Without this, the client always tries to auth even when auth is disabled.
-        return bytearray([0x01 if (_authenticated or not _users) else 0x00])
+        # 0x01 = full access (authenticated, or bypass mode)
+        # 0x02 = view-only (no users configured, enforce mode)
+        # 0x00 = locked (users configured, not yet authenticated)
+        if _authenticated or _auth_bypass:
+            return bytearray([0x01])
+        if not _users:
+            return bytearray([0x02])
+        return bytearray([0x00])
     if uuid == CHAR_PORTCNT_UUID:
         count = simulator.num_ports if simulator is not None else configured_num_ports
         return bytearray(struct.pack('B', count))
-
-    if _users and not _authenticated:
-        log.warning(f"READ  {uuid}  blocked — not authenticated")
-        return bytearray(b'\x00')
 
     if latest_snapshot is None:
         return bytearray(b'\x00')
@@ -529,9 +546,13 @@ def write_request(characteristic: BlessGATTCharacteristic, value: Any, **kwargs)
             _tui_state.registry.record_goodbye()
         return
 
-    if _users and not _authenticated:
-        log.warning(f"WRITE  {uuid}  blocked — not authenticated")
-        return
+    # Block mutation commands when not authorized.
+    # Read-only request opcodes (0x04, 0x27, 0x28, 0x29) pass through.
+    if not _authenticated and not _auth_bypass:
+        opcode = data[0] if data else 0x00
+        if opcode in _MUTATION_OPCODES:
+            log.warning(f"WRITE  {uuid}  opcode 0x{opcode:02X} blocked — not authenticated")
+            return
 
     if uuid == CHAR_CMD_WNR_UUID:
         if cmd_queue is not None:
@@ -1889,10 +1910,11 @@ BLE_NAME_MAX = 26   # BLE advertisement packet limit (~31 bytes - flags - UUID o
 
 async def main(num_ports: int, interval: float, duration: float,
                users: dict = None, name: str = "SwitchMon",
-               headless: bool = False, state_publisher=None):
+               headless: bool = False, state_publisher=None,
+               auth_bypass: bool = False):
     global server, simulator, configured_num_ports
     global cmd_queue, auth_queue, _shutdown_event, _tui_state, _users
-    global _ble_device_name, _HEADLESS
+    global _ble_device_name, _HEADLESS, _auth_bypass
 
     _HEADLESS = headless
 
@@ -1903,6 +1925,7 @@ async def main(num_ports: int, interval: float, duration: float,
     _ble_device_name = name
 
     _users                = users or {}
+    _auth_bypass          = auth_bypass
     configured_num_ports  = num_ports
     cmd_queue             = asyncio.Queue()
     auth_queue            = asyncio.Queue()
@@ -1940,10 +1963,12 @@ async def main(num_ports: int, interval: float, duration: float,
         log.info("Running in no-adapter mode — sensor loop and state publisher active, BLE disabled")
         server = None
 
-    if _users:
+    if _auth_bypass:
+        log.info("Auth: BYPASS — full R/W access without authentication")
+    elif _users:
         log.info(f"Auth: ENABLED ({len(_users)} user{'s' if len(_users) != 1 else ''}: {', '.join(_users.keys())})")
     else:
-        log.info("Auth: DISABLED")
+        log.info("Auth: VIEW-ONLY — no users configured, controls locked")
     log.info(f"Session: {'unlimited' if duration == 0 else f'{int(duration)}s'}")
 
     sensor_task    = asyncio.create_task(sensor_loop(simulator, interval))
