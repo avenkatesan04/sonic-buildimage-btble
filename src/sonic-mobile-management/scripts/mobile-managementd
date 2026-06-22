@@ -123,6 +123,13 @@ def main_entry():
     except Exception as exc:
         log.warning(f"StatePublisher unavailable: {exc}")
 
+    audit = None
+    try:
+        from mobile_management.audit_log import AuditLog
+        audit = AuditLog()
+    except Exception as exc:
+        log.warning(f"AuditLog unavailable: {exc}")
+
     while not shutdown:
         try:
             log.info("Starting BLE peripheral...")
@@ -132,6 +139,7 @@ def main_entry():
                 state_publisher=publisher,
                 auth_bypass=auth_bypass,
                 backend=backend_kind,
+                audit_log=audit,
             ))
             break
         except KeyboardInterrupt:

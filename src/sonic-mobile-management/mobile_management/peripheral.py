@@ -393,6 +393,7 @@ _auth_username: str   = ""   # username written pre-auth; used for HMAC key look
 _auth_nonce:    bytes = b""
 _authenticated: bool  = False
 _auth_bypass:   bool  = False  # True = full R/W with no auth (config mobile-management auth-mode bypass)
+_audit_log      = None         # AuditLog instance (set in main())
 AUTH_TIMEOUT_SECS = 30
 
 
@@ -1502,6 +1503,16 @@ async def _send_port_config(port: int):
 
 # ── Command loop ──────────────────────────────────────────────────────────────
 
+def _audit(opcode: int, data: bytes, result: str = "success"):
+    """Record a mutation command in the audit log."""
+    if _audit_log is None or opcode not in _MUTATION_OPCODES:
+        return
+    name = COMMAND_NAMES.get(opcode, f"0x{opcode:02X}")
+    detail = _format_command_response("wr", opcode, data)
+    username = _auth_username if _authenticated else ("bypass" if _auth_bypass else "anonymous")
+    _audit_log.record(username=username, command=name, detail=detail, result=result)
+
+
 async def command_loop():
     while True:
         kind, data = await cmd_queue.get()
@@ -1525,6 +1536,7 @@ async def command_loop():
             simulator.set_led(port, color, blink)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             # Push updated LED state immediately so client sees the change
             entries = sorted(simulator._leds.items())
             led_buf = bytearray([len(entries)])
@@ -1553,6 +1565,7 @@ async def command_loop():
             simulator.set_port_admin(port, True)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             asyncio.ensure_future(_send_port_config(port))
 
         elif opcode == 0x22 and params and simulator is not None:
@@ -1563,6 +1576,7 @@ async def command_loop():
             simulator.set_port_admin(port, False)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             asyncio.ensure_future(_send_port_config(port))
 
         elif opcode == 0x23 and len(params) >= 2 and simulator is not None:
@@ -1574,6 +1588,7 @@ async def command_loop():
             simulator.set_port_speed(port, speed)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             asyncio.ensure_future(_send_port_config(port))
 
         elif opcode == 0x24 and len(params) >= 3 and simulator is not None:
@@ -1585,6 +1600,7 @@ async def command_loop():
             simulator.set_port_mtu(port, mtu)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             asyncio.ensure_future(_send_port_config(port))
 
         elif opcode == 0x25 and len(params) >= 2 and simulator is not None:
@@ -1597,6 +1613,7 @@ async def command_loop():
             simulator.set_port_desc(port, desc)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
             asyncio.ensure_future(_send_port_config(port))
 
         elif opcode == 0x26 and params and simulator is not None:
@@ -1605,6 +1622,7 @@ async def command_loop():
             simulator.acknowledge_alarm(alarm_id)
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
 
         elif opcode == 0x27:
             asyncio.ensure_future(_send_psu_snapshot())
@@ -1653,10 +1671,10 @@ async def command_loop():
         elif opcode == 0x33 and simulator is not None:
             simulator.demo_reset()
             log.info("DEMO_RESET  all ports unsplit, admin-up, counters zeroed, alarms cleared")
-            # Push updated configs, LEDs, and alarms to connected client
             asyncio.ensure_future(_push_demo_reset_state())
             decoded = "Demo reset complete"
             _push(CHAR_RESPONSE_UUID, decoded.encode())
+            _audit(opcode, data)
 
         elif opcode == 0x30 and params:
             msg_len = params[0]
@@ -1699,13 +1717,16 @@ async def command_loop():
                     server.update_value(SERVICE_UUID, CHAR_PORTCNT_UUID)
                 decoded = f"Split port={port} mode={mode}"
                 _push(CHAR_RESPONSE_UUID, decoded.encode())
+                _audit(opcode, data)
             else:
                 decoded = f"Split failed: port={port} not split-capable"
                 _push(CHAR_RESPONSE_UUID, decoded.encode())
+                _audit(opcode, data, result="failed")
 
         else:
             decoded = _format_command_response(kind, opcode, data)
             _push(CHAR_RESPONSE_UUID, bytearray(decoded.encode("utf-8")))
+            _audit(opcode, data)
 
         if _tui_state is not None:
             _tui_state.registry.record_command(kind, opcode, decoded)
@@ -1911,10 +1932,11 @@ BLE_NAME_MAX = 26   # BLE advertisement packet limit (~31 bytes - flags - UUID o
 async def main(num_ports: int, interval: float, duration: float,
                users: dict = None, name: str = "SwitchMon",
                headless: bool = False, state_publisher=None,
-               auth_bypass: bool = False, backend: str = "auto"):
+               auth_bypass: bool = False, backend: str = "auto",
+               audit_log=None):
     global server, simulator, configured_num_ports
     global cmd_queue, auth_queue, _shutdown_event, _tui_state, _users
-    global _ble_device_name, _HEADLESS, _auth_bypass
+    global _ble_device_name, _HEADLESS, _auth_bypass, _audit_log
 
     _HEADLESS = headless
 
@@ -1926,6 +1948,7 @@ async def main(num_ports: int, interval: float, duration: float,
 
     _users                = users or {}
     _auth_bypass          = auth_bypass
+    _audit_log            = audit_log
     configured_num_ports  = num_ports
     cmd_queue             = asyncio.Queue()
     auth_queue            = asyncio.Queue()
