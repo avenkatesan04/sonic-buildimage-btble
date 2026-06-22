@@ -27,6 +27,8 @@ setup(
         'testing': [
             'pytest',
             'pytest-asyncio',
+            'click',
+            'tabulate',
         ],
     },
     classifiers=[
