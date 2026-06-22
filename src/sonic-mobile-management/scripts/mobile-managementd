@@ -131,6 +131,7 @@ def main_entry():
                 users, name, headless=True,
                 state_publisher=publisher,
                 auth_bypass=auth_bypass,
+                backend=backend_kind,
             ))
             break
         except KeyboardInterrupt:

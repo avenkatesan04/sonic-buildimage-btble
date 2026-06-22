@@ -1911,7 +1911,7 @@ BLE_NAME_MAX = 26   # BLE advertisement packet limit (~31 bytes - flags - UUID o
 async def main(num_ports: int, interval: float, duration: float,
                users: dict = None, name: str = "SwitchMon",
                headless: bool = False, state_publisher=None,
-               auth_bypass: bool = False):
+               auth_bypass: bool = False, backend: str = "auto"):
     global server, simulator, configured_num_ports
     global cmd_queue, auth_queue, _shutdown_event, _tui_state, _users
     global _ble_device_name, _HEADLESS, _auth_bypass
@@ -1949,7 +1949,8 @@ async def main(num_ports: int, interval: float, duration: float,
         tui_handler.setFormatter(logging.Formatter("%(levelname)-5s %(message)s"))
         logging.basicConfig(level=logging.INFO, handlers=[tui_handler])
 
-    simulator = SwitchSensorSimulator(num_ports=num_ports)
+    from mobile_management.backend import create_backend
+    simulator = create_backend(kind=backend, num_ports=num_ports)
 
     try:
         await _configure_adapter_security(name=name)
