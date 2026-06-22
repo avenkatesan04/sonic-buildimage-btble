@@ -1926,15 +1926,20 @@ async def main(num_ports: int, interval: float, duration: float,
         tui_handler.setFormatter(logging.Formatter("%(levelname)-5s %(message)s"))
         logging.basicConfig(level=logging.INFO, handlers=[tui_handler])
 
-    await _configure_adapter_security(name=name)
-
     simulator = SwitchSensorSimulator(num_ports=num_ports)
-    server    = await setup_server(num_ports, name=name)
-    await server.start()
-    _new_nonce()
 
-    log.info(f"Advertising as '{name}'  {num_ports} ports  {interval}s interval"
-             f"  mode={'headless' if headless else 'TUI'}")
+    try:
+        await _configure_adapter_security(name=name)
+        server = await setup_server(num_ports, name=name)
+        await server.start()
+        _new_nonce()
+        log.info(f"Advertising as '{name}'  {num_ports} ports  {interval}s interval"
+                 f"  mode={'headless' if headless else 'TUI'}")
+    except Exception as exc:
+        log.warning(f"BLE server failed to start: {exc}")
+        log.info("Running in no-adapter mode — sensor loop and state publisher active, BLE disabled")
+        server = None
+
     if _users:
         log.info(f"Auth: ENABLED ({len(_users)} user{'s' if len(_users) != 1 else ''}: {', '.join(_users.keys())})")
     else:
@@ -1990,7 +1995,8 @@ async def main(num_ports: int, interval: float, duration: float,
             await task
         except (asyncio.CancelledError, Exception):
             pass
-    await server.stop()
+    if server is not None:
+        await server.stop()
     log.info("SwitchMon stopped.")
 
 
