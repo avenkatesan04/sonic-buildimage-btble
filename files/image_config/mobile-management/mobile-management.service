@@ -7,10 +7,18 @@ After=sonic.target
 
 [Service]
 Type=simple
-ExecStartPre=/usr/local/bin/mobile-management-bt-up.sh
+# The "-" prefix makes a non-zero exit from the BT bring-up non-fatal so the
+# daemon still starts (it has a no-adapter mode). The script itself bounds every
+# BlueZ call with `timeout` (worst-case ~55s when a controller is wedged), and
+# TimeoutStartSec is a generous backstop so a hung pre-script can never wedge
+# the unit into the start-pre kill/restart loop seen with un-timeout'd BlueZ
+# calls.
+ExecStartPre=-/usr/local/bin/mobile-management-bt-up.sh
 ExecStart=/usr/local/bin/mobile-managementd
-ExecStopPost=/usr/local/bin/mobile-management-bt-down.sh
-Restart=no
+ExecStopPost=-/usr/local/bin/mobile-management-bt-down.sh
+TimeoutStartSec=120
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=sonic.target
